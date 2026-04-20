@@ -463,7 +463,7 @@ const Events = () => {
                           ) : null}
                         </div>
 
-                        <p className="text-gray-600 mb-6 leading-relaxed border-t pt-4 border-gray-100">
+                        <p className="text-gray-600 mb-6 leading-relaxed border-t pt-4 border-gray-100 whitespace-pre-wrap">
                           {event.description}
                         </p>
 
