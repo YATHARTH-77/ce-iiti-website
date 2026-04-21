@@ -1434,6 +1434,65 @@ router.patch("/users/:id", requireSuperAdmin, async (req, res) => {
   }
 });
 
+router.delete("/users/:id", requireSuperAdmin, async (req, res) => {
+  const id = getIdFromParams(req, res);
+  if (!id) {
+    return;
+  }
+
+  if (req.adminUser?.id === id) {
+    return res.status(400).json({
+      error: "Invalid action",
+      message: "You cannot delete your own account.",
+    });
+  }
+
+  try {
+    const [existingUser] = await query(
+      `SELECT id, role
+      FROM admin_users
+      WHERE id = ?
+      LIMIT 1`,
+      [id]
+    );
+
+    if (!existingUser) {
+      return res.status(404).json({
+        error: "Not found",
+        message: "Admin user not found.",
+      });
+    }
+
+    if (existingUser.role === ADMIN_ROLES.SUPER_ADMIN) {
+      const [superAdminCountRow] = await query(
+        `SELECT COUNT(*) AS total
+        FROM admin_users
+        WHERE role = ?`,
+        [ADMIN_ROLES.SUPER_ADMIN]
+      );
+
+      const superAdminCount = Number(superAdminCountRow?.total || 0);
+      if (superAdminCount <= 1) {
+        return res.status(400).json({
+          error: "Invalid action",
+          message: "At least one super admin account must remain.",
+        });
+      }
+    }
+
+    await query("DELETE FROM admin_users WHERE id = ?", [id]);
+
+    return res.json({
+      ok: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Failed to delete admin user",
+      message: error.message,
+    });
+  }
+});
+
 router.get("/content", async (_req, res) => {
   try {
     const [siteSettings] = await query(

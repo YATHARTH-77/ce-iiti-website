@@ -13,6 +13,7 @@ import {
   deleteFooterLink,
   deleteHeroSlide,
   deleteHomeStat,
+  deleteAdminUser,
   deleteNavigationItem as deleteNavigationItemApi,
   deleteNewsItem,
   deletePeopleEntry,
@@ -971,6 +972,8 @@ const AdminDashboardContent = () => {
   const [managedAdminModalOpen, setManagedAdminModalOpen] = useState(false);
   const [managedAdminSelectedItem, setManagedAdminSelectedItem] = useState(null);
   const [managedAdminDraft, setManagedAdminDraft] = useState(defaultManagedAdminUserDraft);
+  const [managedAdminConfirmDelete, setManagedAdminConfirmDelete] = useState(false);
+  const [managedAdminDeleteTarget, setManagedAdminDeleteTarget] = useState(null);
 
   // About Content editing
   const [aboutEditMode, setAboutEditMode] = useState(false);
@@ -2580,6 +2583,20 @@ const AdminDashboardContent = () => {
     setManagedAdminDraft(defaultManagedAdminUserDraft);
   };
 
+  const openManagedAdminDelete = (user) => {
+    if (!user?.id || user.id === adminUser?.id) {
+      return;
+    }
+
+    setManagedAdminDeleteTarget(user);
+    setManagedAdminConfirmDelete(true);
+  };
+
+  const closeManagedAdminDelete = () => {
+    setManagedAdminConfirmDelete(false);
+    setManagedAdminDeleteTarget(null);
+  };
+
   const toggleManagedAdminSection = (sectionKey) => {
     setManagedAdminDraft((prev) => {
       const existingSections = Array.isArray(prev.allowed_sections)
@@ -2661,6 +2678,27 @@ const AdminDashboardContent = () => {
 
     if (success) {
       closeManagedAdminModal();
+    }
+  };
+
+  const deleteManagedAdminUser = async () => {
+    if (!managedAdminDeleteTarget?.id) {
+      closeManagedAdminDelete();
+      return;
+    }
+
+    const deletedUserId = managedAdminDeleteTarget.id;
+
+    const success = await runAction(
+      () => deleteAdminUser(deletedUserId),
+      'Admin user deleted successfully.'
+    );
+
+    if (success) {
+      if (managedAdminSelectedItem?.id === deletedUserId) {
+        closeManagedAdminModal();
+      }
+      closeManagedAdminDelete();
     }
   };
 
@@ -5132,12 +5170,13 @@ const AdminDashboardContent = () => {
                             <th className="py-3 px-4 text-left text-xs font-medium uppercase tracking-wider" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>Google Email</th>
                             <th className="py-3 px-4 text-left text-xs font-medium uppercase tracking-wider" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>Sections</th>
                             <th className="py-3 px-4 text-left text-xs font-medium uppercase tracking-wider" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>Status</th>
+                            <th className="py-3 px-4 text-left text-xs font-medium uppercase tracking-wider" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody style={{ backgroundColor: isDark ? '#111827' : '#ffffff' }}>
                           {managedAdminUsers.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="py-10 text-center text-sm" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
+                              <td colSpan={7} className="py-10 text-center text-sm" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
                                 No admin users found.
                               </td>
                             </tr>
@@ -5174,6 +5213,23 @@ const AdminDashboardContent = () => {
                                   <td className="py-3 px-4 text-sm break-all" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>{user.google_email || '-'}</td>
                                   <td className="py-3 px-4 text-sm" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>{user.role === 'super_admin' ? 'All sections' : sectionCount}</td>
                                   <td className="py-3 px-4 text-sm" style={{ color: user.is_active ? '#10b981' : (isDark ? '#9ca3af' : '#6b7280') }}>{user.is_active ? 'Active' : 'Inactive'}</td>
+                                  <td className="py-3 px-4 text-sm">
+                                    {user.id === adminUser?.id ? (
+                                      <span style={{ color: isDark ? '#6b7280' : '#9ca3af' }}>Current User</span>
+                                    ) : (
+                                      <AdminButton
+                                        variant="danger"
+                                        size="sm"
+                                        disabled={isWorking}
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          openManagedAdminDelete(user);
+                                        }}
+                                      >
+                                        Delete
+                                      </AdminButton>
+                                    )}
+                                  </td>
                                 </tr>
                               );
                             })
@@ -5190,9 +5246,22 @@ const AdminDashboardContent = () => {
                   title={managedAdminSelectedItem ? 'Edit Admin User' : 'Create Admin User'}
                   size="lg"
                   footer={
-                    <div className="flex justify-end gap-3">
-                      <AdminButton variant="secondary" onClick={closeManagedAdminModal} disabled={isWorking}>Cancel</AdminButton>
-                      <AdminButton onClick={saveManagedAdminUser} disabled={isWorking}>Save</AdminButton>
+                    <div className="flex justify-between gap-3">
+                      <div>
+                        {managedAdminSelectedItem && managedAdminSelectedItem.id !== adminUser?.id && (
+                          <AdminButton
+                            variant="danger"
+                            onClick={() => openManagedAdminDelete(managedAdminSelectedItem)}
+                            disabled={isWorking}
+                          >
+                            Delete
+                          </AdminButton>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <AdminButton variant="secondary" onClick={closeManagedAdminModal} disabled={isWorking}>Cancel</AdminButton>
+                        <AdminButton onClick={saveManagedAdminUser} disabled={isWorking}>Save</AdminButton>
+                      </div>
                     </div>
                   }
                 >
@@ -5305,6 +5374,17 @@ const AdminDashboardContent = () => {
                     )}
                   </div>
                 </AdminModal>
+
+                <ConfirmationModal
+                  isOpen={managedAdminConfirmDelete}
+                  onClose={closeManagedAdminDelete}
+                  onConfirm={deleteManagedAdminUser}
+                  title="Delete Admin User"
+                  message={`Are you sure you want to delete ${managedAdminDeleteTarget?.username || 'this user'}?`}
+                  confirmText="Delete"
+                  variant="danger"
+                  isLoading={isWorking}
+                />
               </>
             )}
 

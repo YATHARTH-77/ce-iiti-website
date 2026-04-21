@@ -266,6 +266,12 @@ export function updateAdminUser(id, payload) {
   });
 }
 
+export function deleteAdminUser(id) {
+  return adminRequest(`/api/admin/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export function uploadAdminImage(file, category = "general") {
   const formData = new FormData();
   formData.append("image", file);
