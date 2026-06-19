@@ -213,6 +213,34 @@ const Events = () => {
     return [...content.news].sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [content.news]);
 
+  // Added logic to automatically sort and separate events
+  const { upcomingEvents, pastEvents } = useMemo(() => {
+    const allEvents = [
+      ...content.eventsContent.upcoming_events,
+      ...content.eventsContent.past_events,
+    ];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcoming = [];
+    const past = [];
+
+    allEvents.forEach((event) => {
+      const eventDate = new Date(event.date);
+      if (eventDate >= today) {
+        upcoming.push(event);
+      } else {
+        past.push(event);
+      }
+    });
+
+    upcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+    past.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return { upcomingEvents: upcoming, pastEvents: past };
+  }, [content.eventsContent.upcoming_events, content.eventsContent.past_events]);
+
   const categories = useMemo(() => {
     const allCategories = [
       ...content.eventsContent.upcoming_events,
@@ -413,13 +441,13 @@ const Events = () => {
 
           {activeTab === 'upcoming' && (
             <div>
-              {filterEvents(content.eventsContent.upcoming_events).length === 0 ? (
+              {filterEvents(upcomingEvents).length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">{content.eventsContent.no_upcoming_message}</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {filterEvents(content.eventsContent.upcoming_events).map((event, index) => (
+                  {filterEvents(upcomingEvents).map((event, index) => (
                     <div
                       key={`upcoming-${index}-${event.title}`}
                       className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col md:flex-row"
@@ -489,13 +517,13 @@ const Events = () => {
 
           {activeTab === 'past' && (
             <div>
-              {filterEvents(content.eventsContent.past_events).length === 0 ? (
+              {filterEvents(pastEvents).length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">{content.eventsContent.no_past_message}</p>
                 </div>
               ) : (
                 <div className="grid lg:grid-cols-2 gap-8">
-                  {filterEvents(content.eventsContent.past_events).map((event, index) => (
+                  {filterEvents(pastEvents).map((event, index) => (
                     <div
                       key={`past-${index}-${event.title}`}
                       className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col"
