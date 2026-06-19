@@ -245,6 +245,58 @@ router.get("/specializations", async (_req, res) => {
   }
 });
 
+function getLocalTodayDateString() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getEventUniqueKey(event) {
+  return `${event.date}-${event.title}`.toLowerCase();
+}
+
+function moveExpiredUpcomingEventsToPast(eventsContent) {
+  const today = getLocalTodayDateString();
+
+  const upcomingEvents = parseMaybeJson(eventsContent.upcoming_events) || [];
+  const pastEvents = parseMaybeJson(eventsContent.past_events) || [];
+
+  const validUpcomingEvents = [];
+  const expiredUpcomingEvents = [];
+
+  upcomingEvents.forEach((event) => {
+    if (event.date && event.date < today) {
+      expiredUpcomingEvents.push(event);
+    } else {
+      validUpcomingEvents.push(event);
+    }
+  });
+
+  const existingPastKeys = new Set(pastEvents.map(getEventUniqueKey));
+  const updatedPastEvents = [...pastEvents];
+
+  expiredUpcomingEvents.forEach((event) => {
+    const eventKey = getEventUniqueKey(event);
+
+    if (!existingPastKeys.has(eventKey)) {
+      updatedPastEvents.push(event);
+      existingPastKeys.add(eventKey);
+    }
+  });
+
+  validUpcomingEvents.sort((a, b) => a.date.localeCompare(b.date));
+  updatedPastEvents.sort((a, b) => b.date.localeCompare(a.date));
+
+  return {
+    ...eventsContent,
+    upcoming_events: validUpcomingEvents,
+    past_events: updatedPastEvents,
+  };
+}
+
 router.get("/events", async (_req, res) => {
   try {
     const [eventsContent] = await query(
@@ -255,14 +307,37 @@ router.get("/events", async (_req, res) => {
       "SELECT id, title, excerpt, category, image_url, external_link, publish_date FROM news_items WHERE is_active = 1 ORDER BY publish_date DESC, id DESC LIMIT 100"
     );
 
+    let updatedEventsContent = null;
+
+    if (eventsContent) {
+      updatedEventsContent = moveExpiredUpcomingEventsToPast(eventsContent);
+
+      const oldUpcomingEvents = parseMaybeJson(eventsContent.upcoming_events) || [];
+      const oldPastEvents = parseMaybeJson(eventsContent.past_events) || [];
+
+      const hasChanged =
+        JSON.stringify(oldUpcomingEvents) !==
+          JSON.stringify(updatedEventsContent.upcoming_events) ||
+        JSON.stringify(oldPastEvents) !==
+          JSON.stringify(updatedEventsContent.past_events);
+
+      if (hasChanged) {
+        await query(
+          `
+          UPDATE events_content
+          SET upcoming_events = ?, past_events = ?
+          WHERE id = 1
+          `,
+          [
+            JSON.stringify(updatedEventsContent.upcoming_events),
+            JSON.stringify(updatedEventsContent.past_events),
+          ]
+        );
+      }
+    }
+
     return res.json({
-      eventsContent: eventsContent
-        ? {
-            ...eventsContent,
-            upcoming_events: parseMaybeJson(eventsContent.upcoming_events) || [],
-            past_events: parseMaybeJson(eventsContent.past_events) || [],
-          }
-        : null,
+      eventsContent: updatedEventsContent,
       news,
     });
   } catch (error) {
