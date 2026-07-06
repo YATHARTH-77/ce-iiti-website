@@ -640,9 +640,9 @@ const People = () => {
   ];
 
   const isBackendPeopleLoaded = peopleLoadState === 'ready' && Boolean(peopleContent);
-  const currentRegularFaculty = isBackendPeopleLoaded
-    ? (Array.isArray(peopleContent.regularFaculty) ? peopleContent.regularFaculty : [])
-    : regularFaculty;
+  const currentRegularFaculty = regularFaculty;
+    // ? (Array.isArray(peopleContent.regularFaculty) ? peopleContent.regularFaculty : [])
+    // : regularFaculty;
   const currentStaff = isBackendPeopleLoaded
     ? (Array.isArray(peopleContent.staff) ? peopleContent.staff : [])
     : staff;
@@ -658,7 +658,7 @@ const People = () => {
 
   const fallbackFacultyImage = isBackendPeopleLoaded
     ? '/uploads/people/placeholders/faculty-default.jpg'
-    : '/assets/faculty_pics/Gourab.jpg';
+    : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23e5e7eb"/><circle cx="160" cy="118" r="52" fill="%239ca3af"/><rect x="84" y="196" width="152" height="88" rx="44" fill="%239ca3af"/></svg>';
   const fallbackStaffImage = isBackendPeopleLoaded
     ? '/uploads/people/placeholders/staff-default.jpg'
     : '/assets/staff pics/Rinki.jpg';
